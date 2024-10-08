@@ -8,20 +8,26 @@ from modal import build, enter, method
 MODEL = os.environ.get("MODEL", "llama3:instruct")
 
 def pull(model: str = MODEL):
+
+    # ollama_path = subprocess.run(["which", "ollama"], capture_output=True, text=True).stdout.strip()
+    # print(ollama_path)
+
     subprocess.run(["systemctl", "daemon-reload"])
     subprocess.run(["systemctl", "enable", "ollama"])
     subprocess.run(["systemctl", "start", "ollama"])
-    time.sleep(2)  # 2s, wait for the service to start
-    subprocess.run(["ollama", "pull", model], stdout=subprocess.PIPE)
+    time.sleep(5)  # 2s, wait for the service to start
+
+    subprocess.run(["ollama", "pull", model], stdout = subprocess.PIPE)
 
 image = (
     modal.Image
     .debian_slim()
     .apt_install("curl", "systemctl")
     .run_commands( # from https://github.com/ollama/ollama/blob/main/docs/linux.md
-        "curl -L https://ollama.com/download/ollama-linux-amd64 -o /usr/bin/ollama",
-        "chmod +x /usr/bin/ollama",
-        "useradd -r -s /bin/false -m -d /usr/share/ollama ollama",
+        'curl -fsSL https://ollama.com/install.sh | sh'
+        #"curl -L https://ollama.com/download/ollama-linux-amd64 -o /usr/bin/ollama",
+        #"chmod +x /usr/bin/ollama",
+        #"useradd -r -s /bin/false -m -d /usr/share/ollama ollama",
     )
     .copy_local_file("ollama.service", "/etc/systemd/system/ollama.service")
     .pip_install("ollama")
@@ -33,7 +39,7 @@ app = modal.App(name="ollama", image=image)
 with image.imports():
     import ollama
 
-@app.cls(gpu="a10g", region="us-east", container_idle_timeout=300)
+@app.cls(gpu="a10g", container_idle_timeout=300)
 class Ollama:
     @build()
     def pull(self):
@@ -61,7 +67,7 @@ class Ollama:
         )
         for chunk in stream:
             yield chunk['message']['content']
-            print(chunk['message']['content'], end='', flush=True)
+            #print(chunk['message']['content'], end='', flush=True)
         return
 
 # Convenience thing, to run using:
