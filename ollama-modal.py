@@ -2,10 +2,11 @@ import modal
 import os
 import subprocess
 import time
-
+from typing import Dict
 from modal import build, enter, method
 
-MODEL = os.environ.get("MODEL", "llama3:instruct")
+#MODEL = os.environ.get("MODEL", "llama3:instruct") 
+MODEL = os.environ.get("MODEL", "llava-llama3")
 
 def pull(model: str = MODEL):
 
@@ -69,6 +70,23 @@ class Ollama:
             yield chunk['message']['content']
             #print(chunk['message']['content'], end='', flush=True)
         return
+    
+    @method()
+    def run_inference(self, base64_image: str):
+        stream = ollama.chat(
+            model=MODEL,
+            messages=[{
+                "role": "user", 
+                "content": 'transcribe the image in lowercase', 
+                #"images": [f"data:image/jpeg;base64,{base64_image}"],
+                "images": [base64_image]
+            }],
+            stream=True,
+        )
+        
+        for chunk in stream:
+            yield chunk['message']['content']
+            #print(chunk["message"]["content"], end="", flush=True)
 
 # Convenience thing, to run using:
 #
@@ -81,3 +99,21 @@ def main(text: str = "Why is the sky blue?", lookup: bool = False):
         ollama = Ollama()
     for chunk in ollama.infer.remote_gen(text):
         print(chunk, end='', flush=False)
+
+# @app.function(memory = 4000, cpu = 2.0)
+# @modal.web_endpoint(method = "POST")
+# def fx(payload: Dict):
+#     '''
+#     payload = {'search_term': search_input.value.strip()}
+#     requests.post(endpoint, json = payload)
+#     '''
+
+#     import base64
+    
+#     x = base64.b64decode(payload['img'])
+#     ollama = Ollama()
+
+#     for chunk in ollama.run_inference.remote_gen(x):
+#         print(chunk, end='', flush=False)
+
+#     return True
